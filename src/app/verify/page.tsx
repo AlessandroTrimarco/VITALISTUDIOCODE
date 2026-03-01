@@ -93,11 +93,11 @@ export default function VerifyPage() {
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/30">
-            <span className="text-white text-2xl">✉</span>
+            <span className="text-white text-2xl">✈️</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Verificación</h1>
           <p className="text-white/40 text-sm mt-1">
-            Código enviado a <span className="text-white/60">{email}</span>
+            Código enviado por <span className="text-white/70 font-medium">Telegram</span>
           </p>
         </div>
 
