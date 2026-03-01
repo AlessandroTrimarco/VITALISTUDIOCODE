@@ -5,9 +5,10 @@ const FROM = process.env.EMAIL_FROM ?? 'Vitali Studio <onboarding@resend.dev>'
 function getResend() { return new Resend(process.env.RESEND_API_KEY ?? 'placeholder') }
 
 export async function sendOtpEmail(to: string, name: string, code: string): Promise<boolean> {
+  // SIEMPRE loguear en Railway para recuperación de emergencia
+  console.log(`\n🔐 VITALI OTP | Usuario: ${name} | Código: ${code} | Destino: ${to}\n`)
+
   if (!process.env.RESEND_API_KEY) {
-    // Modo desarrollo: mostrar en consola
-    console.log(`\n🔐 OTP para ${name} (${to}): ${code}\n`)
     return true
   }
 
