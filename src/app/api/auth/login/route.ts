@@ -26,11 +26,11 @@ export async function POST(req: NextRequest) {
   }
 
   const code = generateOtp(user.id)
-  const sent = await sendOtpEmail(user.email, user.displayName, code)
-
-  if (!sent) {
-    return NextResponse.json({ error: 'Error enviando código. Intenta de nuevo.' }, { status: 500 })
-  }
+  // Intentar enviar email pero NO bloquear el login si falla
+  // El código siempre está disponible en los logs de Railway
+  sendOtpEmail(user.email, user.displayName, code).catch(err =>
+    console.error('Email send error (non-blocking):', err)
+  )
 
   return NextResponse.json({
     success: true,
