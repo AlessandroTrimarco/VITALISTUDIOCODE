@@ -1,15 +1,17 @@
 import nodemailer from 'nodemailer'
 
 function getTransport() {
+  // Puerto 465 SSL — más confiable en servidores cloud que el service:'gmail'
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
       user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
+      pass: (process.env.GMAIL_APP_PASSWORD ?? '').replace(/\s/g, ''), // elimina espacios si los hay
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
+    connectionTimeout: 10000,
+    socketTimeout: 15000,
   })
 }
 
@@ -18,9 +20,11 @@ export async function sendOtpEmail(to: string, name: string, code: string): Prom
   console.log(`\n🔐 VITALI OTP | Usuario: ${name} | Código: ${code} | Destino: ${to}\n`)
 
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.warn('⚠️  GMAIL_USER o GMAIL_APP_PASSWORD no configurados — revisar Railway Variables')
-    return true // En dev, el log de arriba es suficiente
+    console.warn('⚠️  GMAIL_USER o GMAIL_APP_PASSWORD no configurados en Railway Variables')
+    return true
   }
+
+  console.log(`📤 Intentando enviar desde ${process.env.GMAIL_USER} → ${to}`)
 
   try {
     await getTransport().sendMail({
