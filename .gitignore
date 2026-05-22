@@ -4,3 +4,12 @@
 node_modules/
 .DS_Store
 Thumbs.db
+RAILWAY_VARS.txt
+tsconfig.tsbuildinfo
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+/src/generated/prisma

@@ -20,13 +20,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Usuario y contraseña requeridos' }, { status: 400 })
   }
 
-  const user = validateUser(username, password)
+  const user = await validateUser(username, password)
   if (!user) {
     return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
   }
 
-  const code = generateOtp(user.id)
-  // Non-blocking — el código siempre está en Railway Logs como respaldo
+  const code = await generateOtp(user.id)
   sendOtpEmail(user.email, user.displayName, code, user.id).catch(err =>
     console.error('OTP send error (non-blocking):', err)
   )

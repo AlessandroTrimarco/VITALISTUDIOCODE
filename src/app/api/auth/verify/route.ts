@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyOtp, createSession } from '@/lib/auth'
-import { getUserByUsername } from '@/lib/users'
+import { getUserById } from '@/lib/users'
 
 const COOKIE_NAME = 'vitali_session'
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
   }
 
-  const result = verifyOtp(userId, code)
+  const result = await verifyOtp(userId, code)
 
   if (result === 'expired') {
     return NextResponse.json({ error: 'Código expirado. Inicia sesión nuevamente.' }, { status: 401 })
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   // OTP válido — crear sesión
-  const user = getUserByUsername(userId)
+  const user = await getUserById(userId)
   if (!user) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
 
   const token = await createSession(user)
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 días
+    maxAge: 60 * 60 * 24 * 7,
     path: '/',
   })
 

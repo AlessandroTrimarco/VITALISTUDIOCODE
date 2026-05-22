@@ -1,17 +1,16 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 import type { User } from './users'
+import prisma from './db'
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? 'vitali-studio-secret-change-in-production'
 )
 const COOKIE_NAME = 'vitali_session'
 
-// ─── OTP Storage (in-memory, suficiente para 2 usuarios) ───────────────────
-const otpStore = new Map<string, { code: string; expires: number; attempts: number }>()
+// ─── Rate Limiting (in-memory, por IP — no necesita persistencia) ───────────
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
 
-// ─── Rate Limiting ──────────────────────────────────────────────────────────
 export function checkRateLimit(ip: string): boolean {
   const now = Date.now()
   const entry = loginAttempts.get(ip)
@@ -26,39 +25,54 @@ export function checkRateLimit(ip: string): boolean {
   return true
 }
 
-// ─── OTP ────────────────────────────────────────────────────────────────────
-export function generateOtp(userId: string): string {
+// ─── OTP — persistido en SQLite con TTL 10 min ──────────────────────────────
+export async function generateOtp(userId: string): Promise<string> {
   const code = Math.floor(100000 + Math.random() * 900000).toString()
-  otpStore.set(userId, {
-    code,
-    expires: Date.now() + 5 * 60 * 1000, // 5 minutos
-    attempts: 0,
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+
+  // Borrar tokens previos del mismo usuario
+  await prisma.otpToken.deleteMany({ where: { userId } })
+
+  await prisma.otpToken.create({
+    data: { userId, code, expiresAt },
   })
+
   return code
 }
 
-export function verifyOtp(userId: string, inputCode: string): 'valid' | 'invalid' | 'expired' | 'too_many' {
-  const entry = otpStore.get(userId)
-  if (!entry) return 'invalid'
-  if (Date.now() > entry.expires) {
-    otpStore.delete(userId)
+export async function verifyOtp(
+  userId: string,
+  inputCode: string
+): Promise<'valid' | 'invalid' | 'expired' | 'too_many'> {
+  const token = await prisma.otpToken.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  if (!token) return 'invalid'
+
+  if (new Date() > token.expiresAt) {
+    await prisma.otpToken.delete({ where: { id: token.id } })
     return 'expired'
   }
-  if (entry.attempts >= 3) {
-    otpStore.delete(userId)
+
+  if (token.attempts >= 3) {
+    await prisma.otpToken.delete({ where: { id: token.id } })
     return 'too_many'
   }
 
-  const codeBuf = Buffer.from(entry.code)
+  const codeBuf = Buffer.from(token.code)
   const inputBuf = Buffer.from(inputCode.trim())
 
   if (codeBuf.length !== inputBuf.length || !require('crypto').timingSafeEqual(codeBuf, inputBuf)) {
-    entry.attempts++
-    otpStore.set(userId, entry)
+    await prisma.otpToken.update({
+      where: { id: token.id },
+      data: { attempts: token.attempts + 1 },
+    })
     return 'invalid'
   }
 
-  otpStore.delete(userId)
+  await prisma.otpToken.delete({ where: { id: token.id } })
   return 'valid'
 }
 
@@ -69,6 +83,7 @@ export async function createSession(user: User): Promise<string> {
     username: user.username,
     email: user.email,
     displayName: user.displayName,
+    role: user.role,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -89,6 +104,7 @@ export async function getSession(): Promise<User | null> {
       email: payload.email as string,
       displayName: payload.displayName as string,
       avatar: (payload.username as string)[0],
+      role: (payload.role as string) ?? 'user',
     }
   } catch {
     return null
